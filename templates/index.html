@@ -47,11 +47,11 @@
         <button type="submit">Upload and Process</button>
       </form>
 
-      {% if pdb_file %}
+      {% if mol2_file %}
       <div class="message">
         <p>File processed successfully!</p>
-        <a href="{{ url_for('download_file', filename=pdb_file) }}" download>
-          <button>Download Processed File</button>
+        <a href="{{ url_for('download_file', filename=mol2_file) }}" download>
+          <button>Download Processed File (.mol2)</button>
         </a>
       </div>
       {% elif error %}
