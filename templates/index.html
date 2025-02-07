@@ -132,6 +132,8 @@
 
     <form action="/" method="post" enctype="multipart/form-data">
       <input type="file" name="file" required />
+      <label for="charge">Charge:</label>
+      <input type="number" name="charge" min="-1" max="1" value="0" required />
       <button type="submit" class="upload-btn">Upload</button>
     </form>
 
