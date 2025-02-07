@@ -149,11 +149,6 @@
       </div>
 
       <div class="viewer-container">
-        <h3>3D Viewer</h3>
-        <div id="jsmol"></div>
-        <button onclick="save3DChanges()" class="save-btn">
-          Save 3D Changes
-        </button>
         <script>
           var jmolApplet = Jmol.getApplet("jsmolApplet", {
             width: 600,
@@ -166,6 +161,9 @@
           document.getElementById("jsmol").innerHTML =
             Jmol.getAppletHtml("jsmolApplet");
         </script>
+        <button onclick="save3DChanges()" class="save-btn">
+          Save 3D Changes
+        </button>
       </div>
       {% endif %}
     </div>
