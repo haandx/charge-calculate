@@ -3,62 +3,118 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Upload PDB File</title>
+    <title>MOL2 File Editor</title>
     <style>
       body {
         font-family: Arial, sans-serif;
-        text-align: center;
-        margin: 50px;
-      }
-      .container {
-        max-width: 600px;
-        margin: auto;
+        max-width: 800px;
+        margin: 20px auto;
         padding: 20px;
-        border: 1px solid #ccc;
-        border-radius: 10px;
-        background: #f9f9f9;
+        text-align: center;
+        background-color: #f4f4f4;
+      }
+      h2,
+      h3 {
+        color: #333;
+      }
+      form {
+        margin-bottom: 20px;
       }
       input[type="file"] {
-        margin: 10px 0;
+        padding: 5px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
       }
       button {
-        background-color: #007bff;
-        color: white;
+        padding: 8px 12px;
+        margin: 10px;
         border: none;
-        padding: 10px 15px;
         cursor: pointer;
-        border-radius: 5px;
+        font-size: 16px;
+        border-radius: 4px;
       }
       button:hover {
-        background-color: #0056b3;
+        opacity: 0.8;
       }
-      .message {
-        margin-top: 15px;
-        color: rgb(43, 255, 0);
+      .upload-btn {
+        background-color: #4caf50;
+        color: white;
+      }
+      .save-btn {
+        background-color: #008cba;
+        color: white;
+      }
+      a {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 8px 12px;
+        text-decoration: none;
+        background-color: #f39c12;
+        color: white;
+        border-radius: 4px;
+      }
+      a:hover {
+        opacity: 0.8;
+      }
+      textarea {
+        width: 100%;
+        height: 300px;
+        font-family: monospace;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      p {
+        color: red;
       }
     </style>
+    <script>
+      function loadFileContent(filename) {
+        fetch(`/outputs/${filename}`)
+          .then((response) => response.text())
+          .then((content) => {
+            document.getElementById("mol2Editor").value = content;
+            document.getElementById("filename").value = filename;
+          })
+          .catch((error) => console.error("Error loading file:", error));
+      }
+
+      function saveFile() {
+        const filename = document.getElementById("filename").value;
+        const content = document.getElementById("mol2Editor").value;
+
+        fetch("/save", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ filename, content }),
+        })
+          .then((response) => response.json())
+          .then((data) => alert(data.message || data.error))
+          .catch((error) => console.error("Error saving file:", error));
+      }
+    </script>
   </head>
   <body>
-    <div class="container">
-      <h2>Upload a PDB File</h2>
-      <form action="/" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".pdb" required />
-        <br />
-        <button type="submit">Upload and Process</button>
-      </form>
+    <h2>Upload a PDB File</h2>
+    <form action="/" method="post" enctype="multipart/form-data">
+      <input type="file" name="file" required />
+      <button type="submit" class="upload-btn">Upload</button>
+    </form>
 
-      {% if mol2_file %}
-      <div class="message">
-        <p>File processed successfully!</p>
-        <a href="{{ url_for('download_file', filename=mol2_file) }}" download>
-          <button>Download Processed File (.mol2)</button>
-        </a>
-      </div>
-      {% elif error %}
-      <div class="message">
-        <p>Error: {{ error }}</p>
-      </div>
-      {% endif %}
-    </div>
+    {% if mol2_file %}
+    <h3>Editing: {{ mol2_file }}</h3>
+    <input type="hidden" id="filename" value="{{ mol2_file }}" />
+    <textarea id="mol2Editor"></textarea><br />
+    <button onclick="saveFile()" class="save-btn">Save Changes</button>
+    <a href="/download/{{ mol2_file }}" download>Download</a>
+    <script>
+      loadFileContent("{{ mol2_file }}");
+    </script>
+    {% endif %} {% if error %}
+    <p>Error: {{ error }}</p>
+    {% endif %}
   </body>
 </html>
