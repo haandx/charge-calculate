@@ -57,7 +57,7 @@ def upload_file():
         file = request.files["file"]
         user_charge = int(request.form.get("charge", 0))  # Get charge input, default is 0
 
-        if file:
+        if file: #Creates unique filenames based on the current timestamp to prevent overwriting
             timestamp = int(time.time())
             base_filename = os.path.splitext(file.filename)[0]
             input_path = os.path.join(UPLOAD_FOLDER, f"{base_filename}_{timestamp}.pdb")
