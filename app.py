@@ -18,6 +18,8 @@ app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 def convert_pdb_to_mol2(input_pdb, output_mol2):
     """Convert PDB file to MOL2 format."""
     mol = Chem.MolFromPDBFile(input_pdb, removeHs=False)
+    if mol is None:
+        raise ValueError("Error: Could not parse PDB file.")
     mol = Chem.AddHs(mol)
     AllChem.EmbedMolecule(mol)
     
@@ -36,7 +38,10 @@ def create_mopac_input(mol2_file, mopac_input_file):
 def run_mopac(mopac_input_file):
     """Run MOPAC using subprocess."""
     mopac_executable = r"C:\Program Files\MOPAC\bin\mopac.exe"  # Full path to mopac.exe
-    subprocess.run([mopac_executable, mopac_input_file])
+    result = subprocess.run([mopac_executable, mopac_input_file], capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        raise RuntimeError(f"MOPAC run failed: {result.stderr}")
 
 def extract_charges(mopac_output_file):
     """Extract AM1 charges from MOPAC output file."""
@@ -81,7 +86,6 @@ def upload_file():
                 # Render the result
                 return render_template("index.html", charges=charges, mol2_file=os.path.basename(output_mol2))
 
-
             except Exception as e:
                 return render_template("index.html", error=str(e))
 
@@ -89,10 +93,12 @@ def upload_file():
 
 @app.route('/outputs/<filename>')
 def output_file(filename):
+    """Serve the output MOL2 or MOPAC file."""
     return send_from_directory(OUTPUT_FOLDER, filename)
 
 @app.route('/download/<filename>')
 def download_file(filename):
+    """Download the output file."""
     return send_from_directory(OUTPUT_FOLDER, filename, as_attachment=True)
 
 if __name__ == "__main__":
