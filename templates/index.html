@@ -3,175 +3,51 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MOL2 Editor & 3D Viewer</title>
-    <script
-      type="text/javascript"
-      src="https://chemapps.stolaf.edu/jmol/jsmol/JSmol.min.js"
-    ></script>
-
+    <title>Upload PDB File</title>
     <style>
       body {
         font-family: Arial, sans-serif;
-        background-color: #f4f4f4;
-        text-align: center;
         margin: 0;
-        padding: 20px;
-      }
-      h2,
-      h3 {
-        color: #333;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #f4f4f4;
       }
       .container {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 20px;
-        max-width: 1200px;
-        margin: auto;
-      }
-      .editor-container,
-      .viewer-container {
-        background: white;
-        padding: 15px;
+        background-color: white;
+        padding: 20px;
         border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       }
-      .editor-container {
-        flex: 1;
-        max-width: 500px;
-      }
-      .viewer-container {
-        flex: 1;
-        max-width: 700px;
-      }
-      textarea {
-        width: 100%;
-        height: 300px;
-        font-family: monospace;
+      input[type="file"] {
         padding: 10px;
+        font-size: 16px;
         border: 1px solid #ccc;
         border-radius: 4px;
       }
       button {
-        padding: 8px 12px;
-        margin: 10px;
-        border: none;
-        cursor: pointer;
+        padding: 10px 20px;
         font-size: 16px;
-        border-radius: 4px;
-      }
-      .upload-btn {
         background-color: #4caf50;
         color: white;
-      }
-      .save-btn {
-        background-color: #008cba;
-        color: white;
-      }
-      a {
-        display: inline-block;
-        margin-top: 10px;
-        padding: 8px 12px;
-        text-decoration: none;
-        background-color: #f39c12;
-        color: white;
+        border: none;
         border-radius: 4px;
+        cursor: pointer;
       }
-      #jsmol {
-        width: 100%;
-        max-width: 600px;
-        height: 500px;
-        border: 2px solid #000;
+      button:hover {
+        background-color: #45a049;
       }
     </style>
-
-    <script>
-      function loadFileContent(filename) {
-        fetch(`/outputs/${filename}`)
-          .then((response) => response.text())
-          .then((content) => {
-            document.getElementById("mol2Editor").value = content;
-            document.getElementById("filename").value = filename;
-          })
-          .catch((error) => console.error("Error loading file:", error));
-      }
-
-      function saveFile() {
-        const filename = document.getElementById("filename").value;
-        const content = document.getElementById("mol2Editor").value;
-
-        fetch("/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename, content }),
-        })
-          .then((response) => response.json())
-          .then((data) => alert(data.message || data.error))
-          .catch((error) => console.error("Error saving file:", error));
-      }
-
-      function save3DChanges() {
-        var pdbData = Jmol.scriptWait(jsmolApplet, "write PDB");
-
-        fetch("/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: "{{ pdb_file }}",
-            content: pdbData,
-          }),
-        })
-          .then((response) => response.json())
-          .then((data) => alert("3D File saved successfully!"))
-          .catch((error) => console.error("Error:", error));
-      }
-    </script>
   </head>
   <body>
-    <h2>MOL2 File Editor & 3D Molecule Viewer</h2>
-
-    <form action="/" method="post" enctype="multipart/form-data">
-      <input type="file" name="file" required />
-      <label for="charge">Charge:</label>
-      <input type="number" name="charge" min="-1" max="1" value="0" required />
-      <button type="submit" class="upload-btn">Upload</button>
-    </form>
-
     <div class="container">
-      {% if mol2_file %}
-      <div class="editor-container">
-        <h3>Editing: {{ mol2_file }}</h3>
-        <input type="hidden" id="filename" value="{{ mol2_file }}" />
-        <textarea id="mol2Editor"></textarea><br />
-        <button onclick="saveFile()" class="save-btn">Save Text</button>
-        <a href="/download/{{ mol2_file }}" download>Download</a>
-        <script>
-          loadFileContent("{{ mol2_file }}");
-        </script>
-      </div>
-
-      <div class="viewer-container">
-        <script>
-          var jmolApplet = Jmol.getApplet("jsmolApplet", {
-            width: 600,
-            height: 500,
-            j2sPath: "https://chemapps.stolaf.edu/jmol/jsmol/j2s",
-            script:
-              "load '{{ url_for('output_file', filename=mol2_file) }}'; set modelKitMode true; set antialiasDisplay true; set renderWidth 500; select none;",
-          });
-
-          document.getElementById("jsmol").innerHTML =
-            Jmol.getAppletHtml("jsmolApplet");
-        </script>
-        <button onclick="save3DChanges()" class="save-btn">
-          Save 3D Changes
-        </button>
-      </div>
-      {% endif %}
+      <h2>Upload PDB File</h2>
+      <form action="/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".pdb" required /><br /><br />
+        <button type="submit">Upload and Process</button>
+      </form>
     </div>
-
-    {% if error %}
-    <p style="color: red">Error: {{ error }}</p>
-    {% endif %}
   </body>
 </html>
