@@ -1,7 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
-from flask import Flask, request, send_from_directory, jsonify
+from flask import Flask, request, send_from_directory, jsonify, render_template
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -36,15 +36,15 @@ quit
 
     return output_pdb
 
+def calculate_charge(input_pdb, charge, output_mol2):
+    """Calculate charge using Antechamber"""
+    command = f"antechamber -i {input_pdb} -fi pdb -o {output_mol2} -fo mol2 -c bcc -at gaff2 -nc {charge}"
+    subprocess.run(command, shell=True)
+    return output_mol2
+
 @app.route('/')
 def index():
-    return '''
-    <h1>Upload PDB file</h1>
-    <form method="POST" enctype="multipart/form-data" action="/add_hydrogens">
-        <input type="file" name="file">
-        <input type="submit" value="Upload">
-    </form>
-    '''
+    return render_template('index.html')
 
 @app.route('/add_hydrogens', methods=['POST'])
 def upload_file():
@@ -63,12 +63,20 @@ def upload_file():
         # Add hydrogens
         output_filename = f"modified_{filename}"
         output_pdb = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
-        
-        # Call the function to add hydrogens
         add_hydrogens(input_pdb, output_pdb)
         
+        # Get the charge input from the user
+        charge = request.form.get('charge')
+        if charge is None:
+            return jsonify({"error": "Charge value is required."})
+
+        # Calculate charge using Antechamber
+        output_mol2 = output_filename.replace(".pdb", "_charge.mol2")
+        output_mol2_path = os.path.join(app.config['OUTPUT_FOLDER'], output_mol2)
+        calculate_charge(output_pdb, charge, output_mol2_path)
+
         # Provide the download link for the processed file
-        return send_from_directory(app.config['OUTPUT_FOLDER'], output_filename, as_attachment=True)
+        return send_from_directory(app.config['OUTPUT_FOLDER'], output_mol2, as_attachment=True)
 
     return jsonify({"error": "Invalid file format. Please upload a .pdb file."})
 
