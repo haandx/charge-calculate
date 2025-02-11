@@ -1,105 +1,60 @@
-from flask import Flask, request, render_template, send_from_directory, jsonify
+from flask import Flask, request, render_template, send_from_directory
 import os
-import time
 import subprocess
-from rdkit import Chem
-from rdkit.Chem import AllChem
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "uploads"
-OUTPUT_FOLDER = "outputs"
+# Set the path where the user uploads files and stores results
+UPLOAD_FOLDER = 'uploads'
+RESULT_FOLDER = 'results'
+
+# Make sure the folders exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+os.makedirs(RESULT_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
-def convert_pdb_to_mol2(input_pdb, output_mol2):
-    """Convert PDB file to MOL2 format."""
-    mol = Chem.MolFromPDBFile(input_pdb, removeHs=False)
-    if mol is None:
-        raise ValueError("Error: Could not parse PDB file.")
-    mol = Chem.AddHs(mol)
-    AllChem.EmbedMolecule(mol)
-    
-    # Generate MOL2 content manually
-    mol2_content = Chem.MolToMolBlock(mol)
-    with open(output_mol2, 'w') as f:
-        f.write(mol2_content)
+# Route to display the upload form
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-def create_mopac_input(mol2_file, mopac_input_file):
-    """Create MOPAC input file for AM1 charge calculation."""
-    with open(mopac_input_file, 'w') as f:
-        f.write(f"PM7\n")  # Using PM7, which is the default for MOPAC
-        f.write(f"Molecule input\n")
-        f.write(f"AM1\n")  # Using AM1 method for charge calculation
-
-def run_mopac(mopac_input_file):
-    """Run MOPAC using subprocess."""
-    mopac_executable = r"C:\Program Files\MOPAC\bin\mopac.exe"  # Full path to mopac.exe
-    result = subprocess.run([mopac_executable, mopac_input_file], capture_output=True, text=True)
-    
-    if result.returncode != 0:
-        raise RuntimeError(f"MOPAC run failed: {result.stderr}")
-
-def extract_charges(mopac_output_file):
-    """Extract AM1 charges from MOPAC output file."""
-    charges = []
-    with open(mopac_output_file, 'r') as f:
-        lines = f.readlines()
-        for line in lines:
-            if "FINAL CHARGES" in line:  # Adjust this pattern based on MOPAC output
-                charges.append(line.strip())
-    return charges
-
-
-@app.route("/", methods=["GET", "POST"])
+# Route to handle the file upload and processing
+@app.route('/upload', methods=['POST'])
 def upload_file():
-    if request.method == "POST":
-        file = request.files["file"]
-        user_charge = int(request.form.get("charge", 0))  # Get charge input, default is 0
+    if 'file' not in request.files:
+        return 'No file part', 400
+    file = request.files['file']
+    
+    if file.filename == '':
+        return 'No selected file', 400
+    
+    # Save the uploaded file
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    file.save(file_path)
 
-        if file:  # Creates unique filenames based on the current timestamp to prevent overwriting
-            timestamp = int(time.time())
-            base_filename = os.path.splitext(file.filename)[0]
-            input_path = os.path.join(UPLOAD_FOLDER, f"{base_filename}_{timestamp}.pdb")
-            output_mol2 = os.path.join(OUTPUT_FOLDER, f"{base_filename}_{timestamp}.mol2")
-            mopac_input = os.path.join(OUTPUT_FOLDER, f"{base_filename}_{timestamp}.mop")
-            mopac_output = os.path.join(OUTPUT_FOLDER, f"{base_filename}_{timestamp}.out")
+    # Call Antechamber to add hydrogen and generate mol2
+    try:
+        output_file = os.path.join(RESULT_FOLDER, file.filename.split('.')[0] + '_am1.mol2')
+        command = [
+            'antechamber',
+            '-i', file_path,
+            '-fi', 'pdb',
+            '-o', output_file,
+            '-fo', 'mol2',
+            '-c', 'bcc',
+            '-at', 'gaff2',
+            '-nc', '0'
+        ]
+        
+        subprocess.run(command, check=True)
+        
+        # Send the processed file back to the user
+        return send_from_directory(RESULT_FOLDER, os.path.basename(output_file), as_attachment=True)
 
-            file.save(input_path)
+    except subprocess.CalledProcessError as e:
+        return f"Error occurred: {e}", 500
 
-            try:
-                # Convert PDB to MOL2
-                convert_pdb_to_mol2(input_path, output_mol2)
 
-                # Create MOPAC input file for AM1 charge calculation
-                create_mopac_input(output_mol2, mopac_input)
-
-                # Run MOPAC to calculate charges
-                run_mopac(mopac_input)
-
-                # Extract AM1 charges from MOPAC output
-                charges = extract_charges(mopac_output)
-
-                # Render the result
-                return render_template("index.html", charges=charges, mol2_file=os.path.basename(output_mol2))
-
-            except Exception as e:
-                return render_template("index.html", error=str(e))
-
-    return render_template("index.html", charges=None)
-
-@app.route('/outputs/<filename>')
-def output_file(filename):
-    """Serve the output MOL2 or MOPAC file."""
-    return send_from_directory(OUTPUT_FOLDER, filename)
-
-@app.route('/download/<filename>')
-def download_file(filename):
-    """Download the output file."""
-    return send_from_directory(OUTPUT_FOLDER, filename, as_attachment=True)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
