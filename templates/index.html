@@ -3,51 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Upload PDB File</title>
+    <title>Upload File</title>
     <style>
       body {
         font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
         margin: 0;
         padding: 0;
         display: flex;
         justify-content: center;
         align-items: center;
         height: 100vh;
-        background-color: #f4f4f4;
       }
       .container {
         background-color: white;
         padding: 20px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
         border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
       }
       input[type="file"] {
-        padding: 10px;
-        font-size: 16px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+        margin-bottom: 20px;
       }
-      button {
-        padding: 10px 20px;
-        font-size: 16px;
+      input[type="submit"] {
         background-color: #4caf50;
         color: white;
+        padding: 10px 20px;
         border: none;
-        border-radius: 4px;
         cursor: pointer;
+        border-radius: 5px;
       }
-      button:hover {
+      input[type="submit"]:hover {
         background-color: #45a049;
+      }
+      .error {
+        color: red;
+        margin-top: 20px;
       }
     </style>
   </head>
   <body>
     <div class="container">
-      <h2>Upload PDB File</h2>
-      <form action="/upload" method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".pdb" required /><br /><br />
-        <button type="submit">Upload and Process</button>
+      <h1>Upload Your Structure File</h1>
+      <form action="/upload" method="post" enctype="multipart/form-data">
+        <label for="file">Select file (PDB format):</label><br />
+        <input type="file" name="file" id="file" required /><br /><br />
+        <input type="submit" value="Upload File" />
       </form>
+
+      {% if error %}
+      <div class="error">
+        <p>{{ error }}</p>
+      </div>
+      {% endif %}
     </div>
   </body>
 </html>
