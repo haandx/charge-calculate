@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 from pathlib import Path
 from flask import Flask, request, send_from_directory, jsonify, render_template
 from werkzeug.utils import secure_filename
@@ -57,11 +58,14 @@ def upload_file():
     
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        input_pdb = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        timestamp = time.strftime("%Y%m%d%H%M%S")
+        
+        # Modify filenames to include a timestamp
+        input_pdb = os.path.join(app.config['UPLOAD_FOLDER'], f"{timestamp}_{filename}")
         file.save(input_pdb)
 
         # Add hydrogens
-        output_filename = f"modified_{filename}"
+        output_filename = f"{timestamp}_modified_{filename}"
         output_pdb = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
         add_hydrogens(input_pdb, output_pdb)
         
