@@ -1,49 +1,76 @@
-from flask import Flask, request, render_template, send_from_directory
 import os
-from logic import process_file  # Import the function from logic.py
+import subprocess
+from pathlib import Path
+from flask import Flask, request, send_from_directory, jsonify
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# Set the path where the user uploads files and stores results
-UPLOAD_FOLDER = 'uploads'
-RESULT_FOLDER = 'results'
-
-# Make sure the folders exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESULT_FOLDER, exist_ok=True)
+# Configuration
+UPLOAD_FOLDER = 'results'
+OUTPUT_FOLDER = 'outputs'
+ALLOWED_EXTENSIONS = {'pdb'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
+# Make sure the directories exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-# Route to display the upload form
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def add_hydrogens(input_pdb, output_pdb):
+    """Add hydrogens using Chimera"""
+    script = f"""open {input_pdb}
+addh
+write format pdb #0 {output_pdb}
+quit
+"""
+    with open("chimera_script.cmd", "w") as f:
+        f.write(script)
+    
+    subprocess.run(['/mnt/c/Program Files/Chimera 1.18/bin/chimera.exe', '--nogui', 'chimera_script.cmd'])
+    os.remove("chimera_script.cmd")
+
+    return output_pdb
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return '''
+    <h1>Upload PDB file</h1>
+    <form method="POST" enctype="multipart/form-data" action="/add_hydrogens">
+        <input type="file" name="file">
+        <input type="submit" value="Upload">
+    </form>
+    '''
 
-
-# Route to handle the file upload and processing
-@app.route('/upload', methods=['POST'])
+@app.route('/add_hydrogens', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
-        return 'No file part', 400
+        return jsonify({"error": "No file part"})
     file = request.files['file']
-   
+    
     if file.filename == '':
-        return 'No selected file', 400
-   
-    # Save the uploaded file
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-    file.save(file_path)
+        return jsonify({"error": "No selected file"})
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        input_pdb = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(input_pdb)
 
-    # Process the file using logic.py's process_file function
-    output_file = process_file(file_path, RESULT_FOLDER)
+        # Add hydrogens
+        output_filename = f"modified_{filename}"
+        output_pdb = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
+        
+        # Call the function to add hydrogens
+        add_hydrogens(input_pdb, output_pdb)
+        
+        # Provide the download link for the processed file
+        return send_from_directory(app.config['OUTPUT_FOLDER'], output_filename, as_attachment=True)
 
-    if output_file:
-        # Send the processed file back to the user
-        return send_from_directory(RESULT_FOLDER, os.path.basename(output_file), as_attachment=True)
-    else:
-        return 'Error occurred during processing.', 500
-
+    return jsonify({"error": "Invalid file format. Please upload a .pdb file."})
 
 if __name__ == '__main__':
     app.run(debug=True)
