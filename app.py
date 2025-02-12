@@ -1,6 +1,8 @@
 import os
 import subprocess
 import time
+import shutil  # Add this import at the top of your script
+
 from flask import Flask, request, jsonify, send_from_directory, render_template
 from werkzeug.utils import secure_filename
 
@@ -44,6 +46,7 @@ quit
     os.remove(tleap_input)
     print("Amber parameter files generated ✓")
 
+
 def convert_to_gromacs(prmtop_file, inpcrd_file):
     """Convert Amber topology to GROMACS format using ACPYPE"""
     base_name = os.path.splitext(os.path.basename(prmtop_file))[0]
@@ -52,16 +55,45 @@ def convert_to_gromacs(prmtop_file, inpcrd_file):
     gmx_gro = os.path.join(OUTPUT_FOLDER, f"{base_name}.gro")
     gmx_top = os.path.join(OUTPUT_FOLDER, f"{base_name}.top")
     
-    cmd = ['acpype', '-p', prmtop_file, '-x', inpcrd_file, '-b', base_name]
-    subprocess.run(cmd)
-    
-    # Move the ACPYPE outputs to the output directory
-    os.rename(f"{base_name}.gro", gmx_gro)
-    os.rename(f"{base_name}.top", gmx_top)
-
-    print("GROMACS topology files generated ✓")
-    
-    return gmx_gro, gmx_top
+    try:
+        # Run ACPYPE command
+        cmd = ['acpype', '-p', prmtop_file, '-x', inpcrd_file, '-b', base_name]
+        subprocess.run(cmd, check=True)
+        
+        # Define the folder created by ACPYPE
+        acpype_folder = f"{base_name}.amb2gmx"
+        
+        # Check if the folder exists
+        if not os.path.exists(acpype_folder):
+            raise FileNotFoundError(f"ACPYPE output folder not found: {acpype_folder}")
+        
+        # Define paths to the GROMACS files inside the ACPYPE folder
+        acpype_gro = os.path.join(acpype_folder, f"{base_name}_GMX.gro")
+        acpype_top = os.path.join(acpype_folder, f"{base_name}_GMX.top")
+        
+        # Check if the GROMACS files exist
+        if not os.path.exists(acpype_gro) or not os.path.exists(acpype_top):
+            raise FileNotFoundError("ACPYPE did not generate the expected GROMACS files.")
+        
+        # Move the GROMACS files to the output directory
+        os.rename(acpype_gro, gmx_gro)
+        os.rename(acpype_top, gmx_top)
+        
+        # Remove the ACPYPE folder and its contents
+        shutil.rmtree(acpype_folder)
+        
+        print("GROMACS topology files generated ✓")
+        
+        return gmx_gro, gmx_top
+    except subprocess.CalledProcessError as e:
+        print(f"Error during ACPYPE execution: {e}")
+        raise
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
+        raise
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        raise
 
 def add_hydrogens(input_pdb, output_pdb):
     script = f"""open {input_pdb}\naddh\nwrite format pdb #0 {output_pdb}\nquit\n"""
@@ -130,16 +162,20 @@ def step2():
         return jsonify({"error": "MOL2 file not found"}), 404
     
     # Generate Amber Parameters
+    # Generate Amber Parameters
     timestamp = time.strftime("%Y%m%d%H%M%S")
     frcmod_file = os.path.join(OUTPUT_FOLDER, f'{timestamp}_output.frcmod')
     prmtop_file = os.path.join(OUTPUT_FOLDER, f'{timestamp}_output.prmtop')
     inpcrd_file = os.path.join(OUTPUT_FOLDER, f'{timestamp}_output.inpcrd')
     pdb_output = os.path.join(OUTPUT_FOLDER, f'{timestamp}_output.pdb')
-
     try:
         check_parameters(mol2_path, frcmod_file)
         generate_amber_params(mol2_path, frcmod_file, prmtop_file, inpcrd_file, pdb_output)
-        
+        # Log file paths for debugging
+        print(f"FRCMOD file: {frcmod_file}")
+        print(f"PRMTOP file: {prmtop_file}")
+        print(f"INPCRD file: {inpcrd_file}")
+        print(f"PDB file: {pdb_output}")
         gmx_gro, gmx_top = convert_to_gromacs(prmtop_file, inpcrd_file)
 
         return jsonify({
@@ -159,6 +195,5 @@ def step2():
 @app.route('/download/<filename>')
 def download_file(filename):
     return send_from_directory(OUTPUT_FOLDER, filename, as_attachment=True)
-
 if __name__ == '__main__':
     app.run(debug=True)

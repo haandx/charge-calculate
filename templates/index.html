@@ -30,6 +30,10 @@
         text-decoration: none;
         color: #007bff;
       }
+      .error-message {
+        color: red;
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
@@ -69,6 +73,7 @@
       <div class="step-header">Step 2: Processing...</div>
       <p>Generating Amber Parameters and GROMACS Files...</p>
       <div id="step2Result" class="result"></div>
+      <div id="step2Error" class="error-message"></div>
     </div>
 
     <!-- Download Links Section -->
@@ -123,19 +128,33 @@
             success: function (response) {
               if (response.message) {
                 let downloadLinks = `
-                                <li class="list-group-item"><strong>FRCMOD: </strong><a href="/download/${response.files.frcmod}" target="_blank">Download FRCMOD</a></li>
-                                <li class="list-group-item"><strong>PRMTOP: </strong><a href="/download/${response.files.prmtop}" target="_blank">Download PRMTOP</a></li>
-                                <li class="list-group-item"><strong>INPCRD: </strong><a href="/download/${response.files.inpcrd}" target="_blank">Download INPCRD</a></li>
-                                <li class="list-group-item"><strong>PDB Final: </strong><a href="/download/${response.files.pdb}" target="_blank">Download PDB Final</a></li>
-                                <li class="list-group-item"><strong>GROMACS GRO: </strong><a href="${response.files.gmx_gro}" target="_blank">Download GROMACS GRO</a></li>
-                                <li class="list-group-item"><strong>GROMACS TOP: </strong><a href="${response.files.gmx_top}" target="_blank">Download GROMACS TOP</a></li>
-                            `;
+    <li class="list-group-item"><strong>FRCMOD: </strong><a href="/download/${response.files.frcmod
+      .split("/")
+      .pop()}" target="_blank">Download FRCMOD</a></li>
+    <li class="list-group-item"><strong>PRMTOP: </strong><a href="/download/${response.files.prmtop
+      .split("/")
+      .pop()}" target="_blank">Download PRMTOP</a></li>
+    <li class="list-group-item"><strong>INPCRD: </strong><a href="/download/${response.files.inpcrd
+      .split("/")
+      .pop()}" target="_blank">Download INPCRD</a></li>
+    <li class="list-group-item"><strong>PDB Final: </strong><a href="/download/${response.files.pdb
+      .split("/")
+      .pop()}" target="_blank">Download PDB Final</a></li>
+    <li class="list-group-item"><strong>GROMACS GRO: </strong><a href="${
+      response.files.gmx_gro
+    }" target="_blank">Download GROMACS GRO</a></li>
+    <li class="list-group-item"><strong>GROMACS TOP: </strong><a href="${
+      response.files.gmx_top
+    }" target="_blank">Download GROMACS TOP</a></li>
+`;
                 $("#downloadLinks").html(downloadLinks);
                 $("#downloadLinksSection").show();
               }
             },
             error: function (error) {
-              alert("Error during Step 2 processing: " + error.responseText);
+              $("#step2Error").html(
+                "Error during Step 2 processing: " + error.responseText
+              );
             },
           });
         }
