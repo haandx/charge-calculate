@@ -47,7 +47,8 @@ quit
 
 def convert_to_gromacs(prmtop_file, inpcrd_file):
     """Convert Amber topology to GROMACS format using ACPYPE"""
-    cmd = ['acpype', '-p', prmtop_file, '-x', inpcrd_file, '-b', "4wi_gro"]
+    base_name = os.path.splitext(os.path.basename(prmtop_file))[0]
+    cmd = ['acpype', '-p', prmtop_file, '-x', inpcrd_file, '-b', base_name]
     subprocess.run(cmd)
     print("GROMACS topology files generated ✓")
 
@@ -118,10 +119,10 @@ def step2():
         return jsonify({"error": "MOL2 file not found"}), 404
     
     # Generate Amber Parameters
-    frcmod_file = os.path.join(tempfile.gettempdir(), 'output.frcmod')
-    prmtop_file = os.path.join(tempfile.gettempdir(), 'output.prmtop')
-    inpcrd_file = os.path.join(tempfile.gettempdir(), 'output.inpcrd')
-    pdb_output = os.path.join(tempfile.gettempdir(), 'output.pdb')
+    frcmod_file = os.path.join(tempfile.gettempdir(), f'{time.strftime("%Y%m%d%H%M%S")}_output.frcmod')
+    prmtop_file = os.path.join(tempfile.gettempdir(), f'{time.strftime("%Y%m%d%H%M%S")}_output.prmtop')
+    inpcrd_file = os.path.join(tempfile.gettempdir(), f'{time.strftime("%Y%m%d%H%M%S")}_output.inpcrd')
+    pdb_output = os.path.join(tempfile.gettempdir(), f'{time.strftime("%Y%m%d%H%M%S")}_output.pdb')
 
     try:
         check_parameters(mol2_path, frcmod_file)
