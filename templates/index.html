@@ -3,89 +3,143 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PDB Processing</title>
+    <title>Biocomputing Pipeline</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.0/css/bootstrap.min.css"
+    />
+    <style>
+      body {
+        margin: 20px;
+        font-family: Arial, sans-serif;
+      }
+      .step {
+        margin-top: 20px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      .step-header {
+        font-size: 1.5em;
+        font-weight: bold;
+      }
+      .result {
+        margin-top: 20px;
+      }
+      .result a {
+        text-decoration: none;
+        color: #007bff;
+      }
+    </style>
   </head>
   <body>
-    <h1>Upload your PDB file to process</h1>
+    <h1 class="text-center">Biocomputing Pipeline</h1>
 
-    <h2>Step 1: Add Hydrogen and Calculate Charge</h2>
-    <form
-      id="step1-form"
-      action="/step1"
-      method="POST"
-      enctype="multipart/form-data"
-    >
-      <label for="file">Choose a PDB file:</label>
-      <input type="file" id="file" name="file" accept=".pdb" required />
-      <br /><br />
-
-      <label for="charge">Enter the charge value:</label>
-      <input type="number" id="charge" name="charge" step="any" required />
-      <br /><br />
-
-      <button type="submit">Process Step 1</button>
-    </form>
-
-    <div id="step1-results" style="display: none">
-      <h3>Download Processed Files</h3>
-      <a id="pdb-link" href="#" download>Download Modified PDB</a><br />
-      <a id="mol2-link" href="#" download>Download MOL2</a><br />
-
-      <h2>Step 2: Generate Topology and GROMACS Files</h2>
-      <form id="step2-form" action="/step2" method="POST">
-        <input type="hidden" id="mol2_file" name="mol2_file" />
-        <button type="submit">Process Step 2</button>
+    <!-- Step 1: PDB Upload -->
+    <div class="step">
+      <div class="step-header">Step 1: Upload PDB File</div>
+      <form id="step1Form" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="pdbFile" class="form-label">Upload PDB File</label>
+          <input
+            type="file"
+            class="form-control"
+            id="pdbFile"
+            name="file"
+            accept=".pdb"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label for="charge" class="form-label">Charge Value</label>
+          <input
+            type="number"
+            class="form-control"
+            id="charge"
+            name="charge"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Submit PDB</button>
       </form>
     </div>
 
-    <div id="step2-results" style="display: none">
-      <h3>Download Additional Files</h3>
-      <a id="prmtop-link" href="#" download>Download PRMTOP</a><br />
-      <a id="inpcrd-link" href="#" download>Download INPCRD</a><br />
-      <a id="final-pdb-link" href="#" download>Download FINAL PDB</a><br />
-      <a id="gmx-gro-link" href="#" download>Download GMX.gro</a><br />
-      <a id="gmx-top-link" href="#" download>Download GMX.top</a><br />
+    <!-- Step 2: Process and Generate Files -->
+    <div class="step" id="step2Section" style="display: none">
+      <div class="step-header">Step 2: Processing...</div>
+      <p>Generating Amber Parameters and GROMACS Files...</p>
+      <div id="step2Result" class="result"></div>
     </div>
 
+    <!-- Download Links Section -->
+    <div class="step" id="downloadLinksSection" style="display: none">
+      <div class="step-header">Download Processed Files</div>
+      <ul id="downloadLinks" class="list-group"></ul>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script>
-      document.getElementById("step1-form").onsubmit = async function (event) {
-        event.preventDefault();
-        let formData = new FormData(this);
-        let response = await fetch("/step1", {
-          method: "POST",
-          body: formData,
+      $(document).ready(function () {
+        $("#step1Form").on("submit", function (event) {
+          event.preventDefault();
+
+          let formData = new FormData(this);
+          $.ajax({
+            url: "/step1",
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function (response) {
+              // Show Step 2 section and hide Step 1
+              $("#step1Form").hide();
+              $("#step2Section").show();
+              $("#downloadLinksSection").hide();
+
+              // Show download links for Step 1 files
+              let pdbLink = response.pdb_download;
+              let mol2Link = response.mol2_download;
+              let resultHtml = `  
+                            <p><strong>PDB file with Hydrogens: </strong><a href="${pdbLink}" target="_blank">Download PDB</a></p>
+                            <p><strong>MOL2 file with Charge: </strong><a href="${mol2Link}" target="_blank">Download MOL2</a></p>
+                        `;
+              $("#step2Result").html(resultHtml);
+
+              // Once Step 1 is done, auto-trigger Step 2
+              let mol2File = mol2Link.split("/").pop(); // Get file name from URL
+              processStep2(mol2File);
+            },
+            error: function (error) {
+              alert("Error uploading file: " + error.responseText);
+            },
+          });
         });
-        let data = await response.json();
 
-        if (data.pdb_download && data.mol2_download) {
-          document.getElementById("pdb-link").href = data.pdb_download;
-          document.getElementById("mol2-link").href = data.mol2_download;
-          document.getElementById("mol2_file").value = data.mol2_download
-            .split("/")
-            .pop();
-          document.getElementById("step1-results").style.display = "block";
+        function processStep2(mol2File) {
+          $.ajax({
+            url: "/step2",
+            type: "POST",
+            data: { mol2_file: mol2File },
+            success: function (response) {
+              if (response.message) {
+                let downloadLinks = `
+                                <li class="list-group-item"><strong>FRCMOD: </strong><a href="/download/${response.files.frcmod}" target="_blank">Download FRCMOD</a></li>
+                                <li class="list-group-item"><strong>PRMTOP: </strong><a href="/download/${response.files.prmtop}" target="_blank">Download PRMTOP</a></li>
+                                <li class="list-group-item"><strong>INPCRD: </strong><a href="/download/${response.files.inpcrd}" target="_blank">Download INPCRD</a></li>
+                                <li class="list-group-item"><strong>PDB Final: </strong><a href="/download/${response.files.pdb}" target="_blank">Download PDB Final</a></li>
+                                <li class="list-group-item"><strong>GROMACS GRO: </strong><a href="${response.files.gmx_gro}" target="_blank">Download GROMACS GRO</a></li>
+                                <li class="list-group-item"><strong>GROMACS TOP: </strong><a href="${response.files.gmx_top}" target="_blank">Download GROMACS TOP</a></li>
+                            `;
+                $("#downloadLinks").html(downloadLinks);
+                $("#downloadLinksSection").show();
+              }
+            },
+            error: function (error) {
+              alert("Error during Step 2 processing: " + error.responseText);
+            },
+          });
         }
-      };
-
-      document.getElementById("step2-form").onsubmit = async function (event) {
-        event.preventDefault();
-        let formData = new FormData(this);
-        let response = await fetch("/step2", {
-          method: "POST",
-          body: formData,
-        });
-        let data = await response.json();
-
-        if (data.prmtop_download) {
-          document.getElementById("prmtop-link").href = data.prmtop_download;
-          document.getElementById("inpcrd-link").href = data.inpcrd_download;
-          document.getElementById("final-pdb-link").href =
-            data.final_pdb_download;
-          document.getElementById("gmx-gro-link").href = data.gmx_gro_download;
-          document.getElementById("gmx-top-link").href = data.gmx_top_download;
-          document.getElementById("step2-results").style.display = "block";
-        }
-      };
+      });
     </script>
   </body>
 </html>

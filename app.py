@@ -1,7 +1,6 @@
 import os
 import subprocess
 import time
-import tempfile
 from flask import Flask, request, jsonify, send_from_directory, render_template
 from werkzeug.utils import secure_filename
 
@@ -49,26 +48,20 @@ def convert_to_gromacs(prmtop_file, inpcrd_file):
     """Convert Amber topology to GROMACS format using ACPYPE"""
     base_name = os.path.splitext(os.path.basename(prmtop_file))[0]
     
-    # Create a temporary directory with a timestamp for uniqueness
-    timestamp = time.strftime("%Y%m%d%H%M%S")
-    temp_dir = os.path.join(OUTPUT_FOLDER, f"temp_{timestamp}")
-    os.makedirs(temp_dir, exist_ok=True)
-    
-    # Paths for the GROMACS files within the temporary directory
-    gmx_gro = os.path.join(temp_dir, f"{base_name}.gro")
-    gmx_top = os.path.join(temp_dir, f"{base_name}.top")
+    # Paths for the GROMACS files directly in the OUTPUT_FOLDER
+    gmx_gro = os.path.join(OUTPUT_FOLDER, f"{base_name}.gro")
+    gmx_top = os.path.join(OUTPUT_FOLDER, f"{base_name}.top")
     
     cmd = ['acpype', '-p', prmtop_file, '-x', inpcrd_file, '-b', base_name]
     subprocess.run(cmd)
     
-    # Ensure the ACPYPE outputs are moved to the temporary directory
+    # Move the ACPYPE outputs to the output directory
     os.rename(f"{base_name}.gro", gmx_gro)
     os.rename(f"{base_name}.top", gmx_top)
 
     print("GROMACS topology files generated ✓")
     
-    return gmx_gro, gmx_top, temp_dir
-
+    return gmx_gro, gmx_top
 
 def add_hydrogens(input_pdb, output_pdb):
     script = f"""open {input_pdb}\naddh\nwrite format pdb #0 {output_pdb}\nquit\n"""
@@ -137,10 +130,11 @@ def step2():
         return jsonify({"error": "MOL2 file not found"}), 404
     
     # Generate Amber Parameters
-    frcmod_file = os.path.join(OUTPUT_FOLDER, f'{time.strftime("%Y%m%d%H%M%S")}_output.frcmod')
-    prmtop_file = os.path.join(OUTPUT_FOLDER, f'{time.strftime("%Y%m%d%H%M%S")}_output.prmtop')
-    inpcrd_file = os.path.join(OUTPUT_FOLDER, f'{time.strftime("%Y%m%d%H%M%S")}_output.inpcrd')
-    pdb_output = os.path.join(OUTPUT_FOLDER, f'{time.strftime("%Y%m%d%H%M%S")}_output.pdb')
+    timestamp = time.strftime("%Y%m%d%H%M%S")
+    frcmod_file = os.path.join(OUTPUT_FOLDER, f'{timestamp}_output.frcmod')
+    prmtop_file = os.path.join(OUTPUT_FOLDER, f'{timestamp}_output.prmtop')
+    inpcrd_file = os.path.join(OUTPUT_FOLDER, f'{timestamp}_output.inpcrd')
+    pdb_output = os.path.join(OUTPUT_FOLDER, f'{timestamp}_output.pdb')
 
     try:
         check_parameters(mol2_path, frcmod_file)
@@ -155,8 +149,8 @@ def step2():
                 'prmtop': prmtop_file,
                 'inpcrd': inpcrd_file,
                 'pdb': pdb_output,
-                'gmx_gro': gmx_gro,
-                'gmx_top': gmx_top
+                'gmx_gro': f"/download/{os.path.basename(gmx_gro)}",
+                'gmx_top': f"/download/{os.path.basename(gmx_top)}"
             }
         })
     except Exception as e:
