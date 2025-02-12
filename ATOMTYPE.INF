@@ -64,10 +64,10 @@ atom[25] (H083) is not in any ring (nr[25]=1)
 atom[26] (H09 ) is not in any ring (nr[26]=1)
 atom[27] (H15 ) is not in any ring (nr[27]=1)
 atom[28] (H16 ) is not in any ring (nr[28]=1)
-atom[29] (H12 ) is not in any ring (nr[29]=1)
-atom[30] (H011) is not in any ring (nr[30]=1)
-atom[31] (H012) is not in any ring (nr[31]=1)
-atom[32] (H013) is not in any ring (nr[32]=1)
+atom[29] (H011) is not in any ring (nr[29]=1)
+atom[30] (H012) is not in any ring (nr[30]=1)
+atom[31] (H013) is not in any ring (nr[31]=1)
+atom[32] (H12 ) is not in any ring (nr[32]=1)
 
 ====================================================================================
 -------------------------------aromatic property------------------------------------
@@ -108,10 +108,10 @@ atom [25] (H083) is not an electron-withdrew atom
 atom [26] (H09 ) is not an electron-withdrew atom
 atom [27] (H15 ) is not an electron-withdrew atom
 atom [28] (H16 ) is not an electron-withdrew atom
-atom [29] (H12 ) is not an electron-withdrew atom
-atom [30] (H011) is not an electron-withdrew atom
-atom [31] (H012) is not an electron-withdrew atom
-atom [32] (H013) is not an electron-withdrew atom
+atom [29] (H011) is not an electron-withdrew atom
+atom [30] (H012) is not an electron-withdrew atom
+atom [31] (H013) is not an electron-withdrew atom
+atom [32] (H12 ) is not an electron-withdrew atom
 
 ====================================================================================
 --------------------------------connectivity property-------------------------------
@@ -126,9 +126,9 @@ atom[ 3] (C13 )     1   C14
 atom[ 3] (C13 )     9   C06
 atom[ 3] (C13 )    17   O17
 atom[ 4] (C01 )     5   C02
-atom[ 4] (C01 )    30  H011
-atom[ 4] (C01 )    31  H012
-atom[ 4] (C01 )    32  H013
+atom[ 4] (C01 )    29  H011
+atom[ 4] (C01 )    30  H012
+atom[ 4] (C01 )    31  H013
 atom[ 5] (C02 )     4   C01
 atom[ 5] (C02 )     6   C03
 atom[ 5] (C02 )    20  H022
@@ -163,7 +163,7 @@ atom[14] (F10 )    11   C09
 atom[15] (O07 )     9   C06
 atom[15] (O07 )    10   C08
 atom[16] (O12 )     2   C11
-atom[16] (O12 )    29   H12
+atom[16] (O12 )    32   H12
 atom[17] (O17 )     3   C13
 atom[17] (O17 )    13   C16
 atom[18] (H112)     2   C11
@@ -177,9 +177,9 @@ atom[25] (H083)    10   C08
 atom[26] (H09 )    11   C09
 atom[27] (H15 )    12   C15
 atom[28] (H16 )    13   C16
-atom[29] (H12 )    16   O12
-atom[30] (H011)     4   C01
-atom[31] (H012)     4   C01
-atom[32] (H013)     4   C01
+atom[29] (H011)     4   C01
+atom[30] (H012)     4   C01
+atom[31] (H013)     4   C01
+atom[32] (H12 )    16   O12
 ----------------------------------------END-----------------------------------------
 

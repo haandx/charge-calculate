@@ -10,7 +10,7 @@ app = Flask(__name__)
 # Configuration
 UPLOAD_FOLDER = 'results'
 OUTPUT_FOLDER = 'outputs'
-ALLOWED_EXTENSIONS = {'pdb'}
+ALLOWED_EXTENSIONS = {'pdb', 'mol2'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
@@ -42,6 +42,18 @@ def calculate_charge(input_pdb, charge, output_mol2):
     command = f"antechamber -i {input_pdb} -fi pdb -o {output_mol2} -fo mol2 -c bcc -at gaff2 -nc {charge}"
     subprocess.run(command, shell=True)
     return output_mol2
+
+def optimize_geometry(input_mol2, output_mol2):
+    """Optimize geometry using Antechamber"""
+    command = f"antechamber -i {input_mol2} -fi mol2 -o {output_mol2} -fo mol2 -c bcc -at gaff2"
+    subprocess.run(command, shell=True)
+    return output_mol2
+
+def generate_frcmod(input_mol2, output_frcmod):
+    """Generate force field parameters using parmchk2"""
+    command = f"parmchk2 -i {input_mol2} -f mol2 -o {output_frcmod}"
+    subprocess.run(command, shell=True)
+    return output_frcmod
 
 @app.route('/')
 def index():
@@ -79,10 +91,27 @@ def upload_file():
         output_mol2_path = os.path.join(app.config['OUTPUT_FOLDER'], output_mol2)
         calculate_charge(output_pdb, charge, output_mol2_path)
 
-        # Provide the download link for the processed file
-        return send_from_directory(app.config['OUTPUT_FOLDER'], output_mol2, as_attachment=True)
+        # Optimize geometry
+        optimized_mol2 = output_mol2.replace("_charge.mol2", "_optimized.mol2")
+        optimized_mol2_path = os.path.join(app.config['OUTPUT_FOLDER'], optimized_mol2)
+        optimize_geometry(output_mol2_path, optimized_mol2_path)
 
-    return jsonify({"error": "Invalid file format. Please upload a .pdb file."})
+        # Generate force field parameters
+        frcmod_file = optimized_mol2.replace(".mol2", ".frcmod")
+        frcmod_file_path = os.path.join(app.config['OUTPUT_FOLDER'], frcmod_file)
+        generate_frcmod(optimized_mol2_path, frcmod_file_path)
+
+        # Provide the download links for processed files
+        return jsonify({
+            "mol2_download": f"/download/{optimized_mol2}",
+            "frcmod_download": f"/download/{frcmod_file}"
+        })
+
+    return jsonify({"error": "Invalid file format. Please upload a .pdb or .mol2 file."})
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    return send_from_directory(app.config['OUTPUT_FOLDER'], filename, as_attachment=True)
 
 if __name__ == '__main__':
     app.run(debug=True)

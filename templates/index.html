@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Add Hydrogen to PDB and Calculate Charge</title>
+    <title>Process Molecular Files</title>
   </head>
   <body>
-    <h1>Upload your PDB file to add Hydrogen and Calculate Charge</h1>
+    <h1>Upload your PDB file for Processing</h1>
     <form action="/add_hydrogens" method="POST" enctype="multipart/form-data">
       <label for="file">Choose a PDB file:</label>
       <input type="file" id="file" name="file" accept=".pdb" required />
@@ -18,5 +18,32 @@
 
       <button type="submit">Upload and Process</button>
     </form>
+
+    <h2>Download Processed Files</h2>
+    <p id="mol2_link"></p>
+    <p id="frcmod_link"></p>
+
+    <script>
+      document.querySelector("form").onsubmit = async function (event) {
+        event.preventDefault();
+        let formData = new FormData(this);
+        let response = await fetch("/add_hydrogens", {
+          method: "POST",
+          body: formData,
+        });
+        let result = await response.json();
+
+        if (result.mol2_download && result.frcmod_download) {
+          document.getElementById(
+            "mol2_link"
+          ).innerHTML = `<a href="${result.mol2_download}" download>Download Optimized Mol2 File</a>`;
+          document.getElementById(
+            "frcmod_link"
+          ).innerHTML = `<a href="${result.frcmod_download}" download>Download FRCMOD File</a>`;
+        } else {
+          alert("Error processing file.");
+        }
+      };
+    </script>
   </body>
 </html>
