@@ -1,7 +1,8 @@
 import os
 import subprocess
 import time
-from flask import Flask, request, send_from_directory, jsonify, render_template
+import tempfile
+from flask import Flask, request, jsonify, send_from_directory, render_template
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -19,6 +20,36 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def check_parameters(mol2_file, frcmod_file):
+    """Check if all parameters are available using parmchk2"""
+    cmd = ['parmchk2', '-i', mol2_file, '-f', 'mol2', '-o', frcmod_file]
+    subprocess.run(cmd)
+    print("Force field parameters checked ✓")
+
+def generate_amber_params(mol2_file, frcmod_file, prmtop_file, inpcrd_file, pdb_output):
+    """Generate topology and coordinate files using TLeap"""
+    tleap_input = "pfr.tleap"
+    
+    with open(tleap_input, "w") as f:
+        f.write(f"""
+source leaprc.gaff2
+loadamberparams {frcmod_file}
+PFR = loadmol2 {mol2_file}
+saveamberparm PFR {prmtop_file} {inpcrd_file}
+savepdb PFR {pdb_output}
+quit
+""")
+    
+    subprocess.run(['tleap', '-f', tleap_input])
+    os.remove(tleap_input)
+    print("Amber parameter files generated ✓")
+
+def convert_to_gromacs(prmtop_file, inpcrd_file):
+    """Convert Amber topology to GROMACS format using ACPYPE"""
+    cmd = ['acpype', '-p', prmtop_file, '-x', inpcrd_file, '-b', "4wi_gro"]
+    subprocess.run(cmd)
+    print("GROMACS topology files generated ✓")
 
 def add_hydrogens(input_pdb, output_pdb):
     script = f"""open {input_pdb}\naddh\nwrite format pdb #0 {output_pdb}\nquit\n"""
@@ -53,11 +84,11 @@ def index():
 @app.route('/step1', methods=['POST'])
 def step1():
     if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"})
+        return jsonify({"error": "No file uploaded"}), 400
     file = request.files['file']
     charge = request.form.get('charge')
     if not charge:
-        return jsonify({"error": "Charge value is required"})
+        return jsonify({"error": "Charge value is required"}), 400
     
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
@@ -80,21 +111,34 @@ def step1():
 def step2():
     mol2_file = request.form.get('mol2_file')
     if not mol2_file:
-        return jsonify({"error": "MOL2 file is required"})
+        return jsonify({"error": "MOL2 file is required"}), 400
     
     mol2_path = os.path.join(OUTPUT_FOLDER, mol2_file)
     if not os.path.exists(mol2_path):
-        return jsonify({"error": "MOL2 file not found"})
+        return jsonify({"error": "MOL2 file not found"}), 404
     
-    prmtop, inpcrd, final_pdb, gmx_gro, gmx_top = generate_topology(mol2_path)
-    
-    return jsonify({
-        "prmtop_download": f"/download/{os.path.basename(prmtop)}",
-        "inpcrd_download": f"/download/{os.path.basename(inpcrd)}",
-        "final_pdb_download": f"/download/{os.path.basename(final_pdb)}",
-        "gmx_gro_download": f"/download/{os.path.basename(gmx_gro)}",
-        "gmx_top_download": f"/download/{os.path.basename(gmx_top)}"
-    })
+    # Generate Amber Parameters
+    frcmod_file = os.path.join(tempfile.gettempdir(), 'output.frcmod')
+    prmtop_file = os.path.join(tempfile.gettempdir(), 'output.prmtop')
+    inpcrd_file = os.path.join(tempfile.gettempdir(), 'output.inpcrd')
+    pdb_output = os.path.join(tempfile.gettempdir(), 'output.pdb')
+
+    try:
+        check_parameters(mol2_path, frcmod_file)
+        generate_amber_params(mol2_path, frcmod_file, prmtop_file, inpcrd_file, pdb_output)
+        convert_to_gromacs(prmtop_file, inpcrd_file)
+
+        return jsonify({
+            'message': 'Files processed successfully!',
+            'files': {
+                'frcmod': frcmod_file,
+                'prmtop': prmtop_file,
+                'inpcrd': inpcrd_file,
+                'pdb': pdb_output
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/download/<filename>')
 def download_file(filename):
