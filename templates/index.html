@@ -3,11 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Process Molecular Files</title>
+    <title>PDB Processing</title>
   </head>
   <body>
-    <h1>Upload your PDB file for Processing</h1>
-    <form action="/add_hydrogens" method="POST" enctype="multipart/form-data">
+    <h1>Upload your PDB file to process</h1>
+
+    <h2>Step 1: Add Hydrogen and Calculate Charge</h2>
+    <form
+      id="step1-form"
+      action="/step1"
+      method="POST"
+      enctype="multipart/form-data"
+    >
       <label for="file">Choose a PDB file:</label>
       <input type="file" id="file" name="file" accept=".pdb" required />
       <br /><br />
@@ -16,32 +23,67 @@
       <input type="number" id="charge" name="charge" step="any" required />
       <br /><br />
 
-      <button type="submit">Upload and Process</button>
+      <button type="submit">Process Step 1</button>
     </form>
 
-    <h2>Download Processed Files</h2>
-    <p id="mol2_link"></p>
-    <p id="frcmod_link"></p>
+    <div id="step1-results" style="display: none">
+      <h3>Download Processed Files</h3>
+      <a id="pdb-link" href="#" download>Download Modified PDB</a><br />
+      <a id="mol2-link" href="#" download>Download MOL2</a><br />
+
+      <h2>Step 2: Generate Topology and GROMACS Files</h2>
+      <form id="step2-form" action="/step2" method="POST">
+        <input type="hidden" id="mol2_file" name="mol2_file" />
+        <button type="submit">Process Step 2</button>
+      </form>
+    </div>
+
+    <div id="step2-results" style="display: none">
+      <h3>Download Additional Files</h3>
+      <a id="prmtop-link" href="#" download>Download PRMTOP</a><br />
+      <a id="inpcrd-link" href="#" download>Download INPCRD</a><br />
+      <a id="final-pdb-link" href="#" download>Download FINAL PDB</a><br />
+      <a id="gmx-gro-link" href="#" download>Download GMX.gro</a><br />
+      <a id="gmx-top-link" href="#" download>Download GMX.top</a><br />
+    </div>
 
     <script>
-      document.querySelector("form").onsubmit = async function (event) {
+      document.getElementById("step1-form").onsubmit = async function (event) {
         event.preventDefault();
         let formData = new FormData(this);
-        let response = await fetch("/add_hydrogens", {
+        let response = await fetch("/step1", {
           method: "POST",
           body: formData,
         });
-        let result = await response.json();
+        let data = await response.json();
 
-        if (result.mol2_download && result.frcmod_download) {
-          document.getElementById(
-            "mol2_link"
-          ).innerHTML = `<a href="${result.mol2_download}" download>Download Optimized Mol2 File</a>`;
-          document.getElementById(
-            "frcmod_link"
-          ).innerHTML = `<a href="${result.frcmod_download}" download>Download FRCMOD File</a>`;
-        } else {
-          alert("Error processing file.");
+        if (data.pdb_download && data.mol2_download) {
+          document.getElementById("pdb-link").href = data.pdb_download;
+          document.getElementById("mol2-link").href = data.mol2_download;
+          document.getElementById("mol2_file").value = data.mol2_download
+            .split("/")
+            .pop();
+          document.getElementById("step1-results").style.display = "block";
+        }
+      };
+
+      document.getElementById("step2-form").onsubmit = async function (event) {
+        event.preventDefault();
+        let formData = new FormData(this);
+        let response = await fetch("/step2", {
+          method: "POST",
+          body: formData,
+        });
+        let data = await response.json();
+
+        if (data.prmtop_download) {
+          document.getElementById("prmtop-link").href = data.prmtop_download;
+          document.getElementById("inpcrd-link").href = data.inpcrd_download;
+          document.getElementById("final-pdb-link").href =
+            data.final_pdb_download;
+          document.getElementById("gmx-gro-link").href = data.gmx_gro_download;
+          document.getElementById("gmx-top-link").href = data.gmx_top_download;
+          document.getElementById("step2-results").style.display = "block";
         }
       };
     </script>
