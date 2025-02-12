@@ -48,9 +48,27 @@ quit
 def convert_to_gromacs(prmtop_file, inpcrd_file):
     """Convert Amber topology to GROMACS format using ACPYPE"""
     base_name = os.path.splitext(os.path.basename(prmtop_file))[0]
+    
+    # Create a temporary directory with a timestamp for uniqueness
+    timestamp = time.strftime("%Y%m%d%H%M%S")
+    temp_dir = os.path.join(OUTPUT_FOLDER, f"temp_{timestamp}")
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    # Paths for the GROMACS files within the temporary directory
+    gmx_gro = os.path.join(temp_dir, f"{base_name}.gro")
+    gmx_top = os.path.join(temp_dir, f"{base_name}.top")
+    
     cmd = ['acpype', '-p', prmtop_file, '-x', inpcrd_file, '-b', base_name]
     subprocess.run(cmd)
+    
+    # Ensure the ACPYPE outputs are moved to the temporary directory
+    os.rename(f"{base_name}.gro", gmx_gro)
+    os.rename(f"{base_name}.top", gmx_top)
+
     print("GROMACS topology files generated ✓")
+    
+    return gmx_gro, gmx_top, temp_dir
+
 
 def add_hydrogens(input_pdb, output_pdb):
     script = f"""open {input_pdb}\naddh\nwrite format pdb #0 {output_pdb}\nquit\n"""
@@ -119,15 +137,16 @@ def step2():
         return jsonify({"error": "MOL2 file not found"}), 404
     
     # Generate Amber Parameters
-    frcmod_file = os.path.join(tempfile.gettempdir(), f'{time.strftime("%Y%m%d%H%M%S")}_output.frcmod')
-    prmtop_file = os.path.join(tempfile.gettempdir(), f'{time.strftime("%Y%m%d%H%M%S")}_output.prmtop')
-    inpcrd_file = os.path.join(tempfile.gettempdir(), f'{time.strftime("%Y%m%d%H%M%S")}_output.inpcrd')
-    pdb_output = os.path.join(tempfile.gettempdir(), f'{time.strftime("%Y%m%d%H%M%S")}_output.pdb')
+    frcmod_file = os.path.join(OUTPUT_FOLDER, f'{time.strftime("%Y%m%d%H%M%S")}_output.frcmod')
+    prmtop_file = os.path.join(OUTPUT_FOLDER, f'{time.strftime("%Y%m%d%H%M%S")}_output.prmtop')
+    inpcrd_file = os.path.join(OUTPUT_FOLDER, f'{time.strftime("%Y%m%d%H%M%S")}_output.inpcrd')
+    pdb_output = os.path.join(OUTPUT_FOLDER, f'{time.strftime("%Y%m%d%H%M%S")}_output.pdb')
 
     try:
         check_parameters(mol2_path, frcmod_file)
         generate_amber_params(mol2_path, frcmod_file, prmtop_file, inpcrd_file, pdb_output)
-        convert_to_gromacs(prmtop_file, inpcrd_file)
+        
+        gmx_gro, gmx_top = convert_to_gromacs(prmtop_file, inpcrd_file)
 
         return jsonify({
             'message': 'Files processed successfully!',
@@ -135,7 +154,9 @@ def step2():
                 'frcmod': frcmod_file,
                 'prmtop': prmtop_file,
                 'inpcrd': inpcrd_file,
-                'pdb': pdb_output
+                'pdb': pdb_output,
+                'gmx_gro': gmx_gro,
+                'gmx_top': gmx_top
             }
         })
     except Exception as e:
